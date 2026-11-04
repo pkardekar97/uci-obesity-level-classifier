@@ -6,12 +6,21 @@ import seaborn as sns
 from sklearn.metrics import classification_report, confusion_matrix
 from metrics_utils import compute_metrics
 
-st.set_page_config(page_title="Obesity Level Classifier", layout="wide")
+st.set_page_config(page_title="Obesity Level Classifier", page_icon="🩺", layout="wide")
+
+# Custom lightweight styling
+st.markdown("""
+<style>
+    .reportview-container .main .block-container { padding-top: 2rem; }
+    div[data-testid="stMetricValue"] { font-size: 1.6rem; color: #1e3a8a; }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("Obesity Level Classification System")
+st.caption("BITS Pilani M.Tech AI/ML | Machine Learning Assignment 1")
 st.markdown(
-    "Interactive multi-class classification system trained on the UCI Obesity dataset "
-    "using 14 behavioral and demographic features (Height and Weight omitted to prevent target leakage)."
+    "Interactive evaluation dashboard evaluating 5 distinct classifiers trained on the UCI Obesity dataset. "
+    "Features include 14 lifestyle and demographic attributes (Height and Weight removed to avoid target leakage)."
 )
 
 # Load metadata
@@ -22,6 +31,7 @@ def load_meta():
 meta = load_meta()
 target_col = meta["target"]
 class_names = meta["classes"]
+readable_classes = [c.replace("_", " ") for c in class_names]
 
 model_options = {
     "Logistic Regression": "model/logistic_regression.joblib",
@@ -32,8 +42,8 @@ model_options = {
 }
 
 # Sidebar controls
-st.sidebar.header("Configuration")
-selected_model_name = st.sidebar.selectbox("Select Classifier", list(model_options.keys()))
+st.sidebar.header("Model Configuration")
+selected_model_name = st.sidebar.selectbox("Choose Classifier", list(model_options.keys()))
 
 @st.cache_resource
 def load_selected_model(path):
@@ -42,8 +52,9 @@ def load_selected_model(path):
 model = load_selected_model(model_options[selected_model_name])
 
 # Data upload
-st.sidebar.subheader("Upload Test Dataset")
-uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
+st.sidebar.markdown("---")
+st.sidebar.subheader("Test Data Input")
+uploaded_file = st.sidebar.file_uploader("Upload custom CSV test set", type=["csv"])
 
 if uploaded_file is not None:
     df_eval = pd.read_csv(uploaded_file)
@@ -52,8 +63,8 @@ else:
     st.sidebar.info("Using default held-out test_data.csv.")
     df_eval = pd.read_csv("test_data.csv")
 
-st.subheader("Data Preview")
-st.dataframe(df_eval.head(10), width="stretch")
+st.subheader("Dataset Sample")
+st.dataframe(df_eval.head(8), width="stretch")
 
 if target_col in df_eval.columns:
     X_eval = df_eval.drop(columns=[target_col])
@@ -65,7 +76,8 @@ if target_col in df_eval.columns:
     metrics = compute_metrics(model, X_eval, y_eval)
     preds = model.predict(X_eval)
 
-    st.subheader(f"Evaluation Metrics: {selected_model_name}")
+    st.markdown("---")
+    st.subheader(f"Performance Metrics: {selected_model_name}")
     c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Accuracy", f"{metrics['Accuracy']:.4f}")
     c2.metric("AUC (OvR)", f"{metrics['AUC']:.4f}")
@@ -80,20 +92,22 @@ if target_col in df_eval.columns:
     with col_left:
         st.subheader("Confusion Matrix")
         cm = confusion_matrix(y_eval, preds)
-        fig, ax = plt.subplots(figsize=(7, 6))
+        fig, ax = plt.subplots(figsize=(6.5, 5))
         sns.heatmap(
             cm,
             annot=True,
             fmt="d",
             cmap="Blues",
-            xticklabels=[c.replace("_", " ") for c in class_names],
-            yticklabels=[c.replace("_", " ") for c in class_names],
+            xticklabels=readable_classes,
+            yticklabels=readable_classes,
+            cbar=False,
             ax=ax,
         )
-        ax.set_xlabel("Predicted Class")
-        ax.set_ylabel("True Class")
-        plt.xticks(rotation=45, ha="right", fontsize=8)
+        ax.set_xlabel("Predicted Class", fontweight="bold")
+        ax.set_ylabel("True Class", fontweight="bold")
+        plt.xticks(rotation=40, ha="right", fontsize=8)
         plt.yticks(fontsize=8)
+        plt.tight_layout()
         st.pyplot(fig)
 
     with col_right:
@@ -101,7 +115,7 @@ if target_col in df_eval.columns:
         report_dict = classification_report(
             y_eval,
             preds,
-            target_names=[c.replace("_", " ") for c in class_names],
+            target_names=readable_classes,
             output_dict=True,
             zero_division=0,
         )
@@ -110,7 +124,7 @@ if target_col in df_eval.columns:
 else:
     st.subheader(f"Model Predictions: {selected_model_name}")
     preds = model.predict(df_eval)
-    pred_labels = [class_names[p] for p in preds]
+    pred_labels = [readable_classes[p] for p in preds]
     results_df = df_eval.copy()
     results_df["Predicted_Obesity_Level"] = pred_labels
     st.dataframe(results_df, width="stretch")
