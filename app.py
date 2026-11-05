@@ -1,190 +1,173 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import (
-    accuracy_score,
-    roc_auc_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    matthews_corrcoef,
-    confusion_matrix
-)
+from sklearn.metrics import classification_report, confusion_matrix
+from metrics_utils import compute_metrics
 
-# ---------------------------------------------------------
-# Page Configuration
-# ---------------------------------------------------------
-st.set_page_config(
-    page_title="Obesity Risk Level Classifier",
-    page_icon="⚖️",
-    layout="wide"
-)
+st.set_page_config(page_title="Obesity Level Classifier", page_icon="🩺", layout="wide")
 
-# ---------------------------------------------------------
-# Header & Assignment Information
-# ---------------------------------------------------------
+# Custom lightweight styling
+st.markdown("""
+<style>
+    .reportview-container .main .block-container { padding-top: 2rem; }
+    div[data-testid="stMetricValue"] { font-size: 1.6rem; color: #1e3a8a; }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("Obesity Level Classification System")
 st.markdown("**BITS Pilani M.Tech AI/ML | Machine Learning Assignment 2**")
 st.caption("Student Name: Pranay Kardekar | BITS ID: 2026AK05670")
-st.markdown("---")
+st.markdown(
+    "Interactive evaluation dashboard evaluating 5 distinct classifiers trained on the UCI Obesity dataset. "
+    "Features include 14 lifestyle and demographic attributes (Height and Weight removed to avoid target leakage)."
+)
 
-# ---------------------------------------------------------
-# Sidebar Configuration
-# ---------------------------------------------------------
-st.sidebar.header("1. Model Selection")
-model_options = [
-    "Support Vector Machine",
-    "KNN",
-    "Decision Tree",
-    "Logistic Regression",
-    "Naive Bayes"
-]
-selected_model_name = st.sidebar.selectbox("Choose Classifier", model_options)
+# Load metadata
+@st.cache_resource
+def load_meta():
+    meta_path = "model/meta.joblib"
+    if os.path.exists(meta_path):
+        return joblib.load(meta_path)
+    return None
 
-st.sidebar.header("2. Test Data Input")
+meta = load_meta()
+if meta is None:
+    st.error("Metadata file 'model/meta.joblib' not found. Please ensure it is present in the repository.")
+    st.stop()
+
+target_col = meta["target"]
+class_names = meta["classes"]
+readable_classes = [c.replace("_", " ") for c in class_names]
+
+model_options = {
+    "Logistic Regression": "model/logistic_regression.joblib",
+    "Decision Tree": "model/decision_tree.joblib",
+    "KNN": "model/knn.joblib",
+    "Naive Bayes": "model/naive_bayes.joblib",
+    "SVM": "model/svm.joblib",
+}
+
+# Sidebar controls
+st.sidebar.header("Model Configuration")
+selected_model_name = st.sidebar.selectbox("Choose Classifier", list(model_options.keys()))
+
+@st.cache_resource
+def load_selected_model(path):
+    if os.path.exists(path):
+        return joblib.load(path)
+    return None
+
+model = load_selected_model(model_options[selected_model_name])
+if model is None:
+    st.error(f"Model file '{model_options[selected_model_name]}' could not be loaded.")
+    st.stop()
+
+# Data upload controls
+st.sidebar.markdown("---")
+st.sidebar.subheader("Test Data Input")
+
 data_mode = st.sidebar.radio(
     "Select Evaluation Mode:",
     ("Upload Custom Test CSV", "Use Sample Held-out Test Data"),
     index=0
 )
 
-uploaded_file = None
-if data_mode == "Upload Custom Test CSV":
-    uploaded_file = st.sidebar.file_uploader(
-        "Upload test dataset (.csv)", 
-        type=["csv"],
-        help="Upload a test CSV containing the 16 UCI Obesity features."
-    )
-
-# ---------------------------------------------------------
-# Model Mapping & Asset Loading
-# ---------------------------------------------------------
-model_file_map = {
-    "Support Vector Machine": "svm_model.pkl",
-    "KNN": "knn_model.pkl",
-    "Decision Tree": "decision_tree_model.pkl",
-    "Logistic Regression": "logistic_regression_model.pkl",
-    "Naive Bayes": "naive_bayes_model.pkl"
-}
-
-@st.cache_resource
-def load_model(model_name):
-    filename = model_file_map.get(model_name)
-    if filename and os.path.exists(filename):
-        return joblib.load(filename)
-    return None
-
-model = load_model(selected_model_name)
-
-# ---------------------------------------------------------
-# Data Acquisition & Gating
-# ---------------------------------------------------------
-df = None
+df_eval = None
 
 if data_mode == "Upload Custom Test CSV":
-    if uploaded_file is None:
+    uploaded_file = st.sidebar.file_uploader("Upload custom CSV test set", type=["csv"])
+    if uploaded_file is not None:
+        try:
+            df_eval = pd.read_csv(uploaded_file)
+            st.sidebar.success("Custom CSV uploaded successfully.")
+        except Exception as e:
+            st.error(f"Error reading CSV: {e}")
+            st.stop()
+    else:
         st.info("👈 **Awaiting Data Input:** Please upload a test dataset CSV file from the sidebar to begin model evaluation.")
         st.markdown(
             """
-            > **Evaluation Note:**  
-            > If you do not have an external test dataset on hand, switch the sidebar mode to **"Use Sample Held-out Test Data"** to evaluate the trained models on the held-out test split.
+            > **Note:** If you do not have an external test CSV ready, switch the sidebar mode to **"Use Sample Held-out Test Data"** to evaluate the trained model on the benchmark test split.
             """
         )
         st.stop()
-    else:
-        try:
-            df = pd.read_csv(uploaded_file)
-        except Exception as e:
-            st.error(f"Error reading uploaded CSV: {e}")
-            st.stop()
 else:
-    # Fallback / sample mode
     sample_path = "test_data.csv"
     if os.path.exists(sample_path):
-        df = pd.read_csv(sample_path)
-        st.sidebar.success("Loaded sample held-out test dataset.")
+        df_eval = pd.read_csv(sample_path)
+        st.sidebar.info("Using default held-out test_data.csv.")
     else:
-        st.error(f"Sample test dataset '{sample_path}' not found in repository.")
+        st.error(f"Sample test dataset '{sample_path}' not found.")
         st.stop()
 
 # ---------------------------------------------------------
-# Evaluation Dashboard (Renders only after data is loaded)
+# Evaluation Dashboard (Renders only after data is available)
 # ---------------------------------------------------------
-if df is not None:
-    st.subheader("Dataset Sample (First 5 Rows)")
-    st.dataframe(df.head(), use_container_width=True)
+st.subheader("Dataset Sample")
+st.dataframe(df_eval.head(8), width="stretch")
 
-    if model is None:
-        st.error(f"Serialized model file for '{selected_model_name}' could not be loaded. Ensure .pkl files are in the repository.")
-        st.stop()
+if target_col in df_eval.columns:
+    X_eval = df_eval.drop(columns=[target_col])
+    y_raw = df_eval[target_col]
+    label_map = {name: idx for idx, name in enumerate(class_names)}
+    y_eval = y_raw.map(label_map)
 
-    # Target variable handling
-    target_col = "NObeyesdad"
-    if target_col in df.columns:
-        X_test = df.drop(columns=[target_col])
-        y_test = df[target_col]
-        has_ground_truth = True
-    else:
-        X_test = df
-        y_test = None
-        has_ground_truth = False
+    # Compute metrics
+    metrics = compute_metrics(model, X_eval, y_eval)
+    preds = model.predict(X_eval)
 
-    # Inference
-    try:
-        y_pred = model.predict(X_test)
-        has_proba = hasattr(model, "predict_proba")
-        y_proba = model.predict_proba(X_test) if has_proba else None
-    except Exception as e:
-        st.error(f"Inference failed on input data: {e}")
-        st.stop()
+    st.markdown("---")
+    st.subheader(f"Performance Metrics: {selected_model_name}")
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1.metric("Accuracy", f"{metrics['Accuracy']:.4f}")
+    c2.metric("AUC (OvR)", f"{metrics['AUC']:.4f}")
+    c3.metric("Precision", f"{metrics['Precision']:.4f}")
+    c4.metric("Recall", f"{metrics['Recall']:.4f}")
+    c5.metric("F1-Score", f"{metrics['F1']:.4f}")
+    c6.metric("MCC", f"{metrics['MCC']:.4f}")
 
-    # Display Metrics if Ground Truth is Available
-    if has_ground_truth:
-        st.subheader(f"Performance Metrics: {selected_model_name}")
+    st.markdown("---")
+    col_left, col_right = st.columns([1, 1])
 
-        acc = accuracy_score(y_test, y_pred)
-        prec = precision_score(y_test, y_pred, average="weighted", zero_division=0)
-        rec = recall_score(y_test, y_pred, average="weighted", zero_division=0)
-        f1 = f1_score(y_test, y_pred, average="weighted", zero_division=0)
-        mcc = matthews_corrcoef(y_test, y_pred)
-
-        # Multi-class AUC
-        auc_score = "N/A"
-        if has_proba and len(np.unique(y_test)) > 1:
-            try:
-                auc_score = f"{roc_auc_score(y_test, y_proba, multi_class='ovr', average='weighted'):.4f}"
-            except Exception:
-                auc_score = "N/A"
-
-        m_col1, m_col2, m_col3, m_col4, m_col5, m_col6 = st.columns(6)
-        m_col1.metric("Accuracy", f"{acc:.4f}")
-        m_col2.metric("AUC", auc_score)
-        m_col3.metric("Precision", f"{prec:.4f}")
-        m_col4.metric("Recall", f"{rec:.4f}")
-        m_col5.metric("F1 Score", f"{f1:.4f}")
-        m_col6.metric("MCC", f"{mcc:.4f}")
-
-        # Confusion Matrix
+    with col_left:
         st.subheader("Confusion Matrix")
-        labels = np.unique(np.concatenate([y_test.unique(), np.unique(y_pred)]))
-        cm = confusion_matrix(y_test, y_pred, labels=labels)
-        
-        fig, ax = plt.subplots(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=labels, yticklabels=labels, ax=ax)
-        ax.set_xlabel("Predicted Label")
-        ax.set_ylabel("True Label")
-        ax.set_title(f"Confusion Matrix: {selected_model_name}")
-        plt.xticks(rotation=45, ha="right")
+        cm = confusion_matrix(y_eval, preds)
+        fig, ax = plt.subplots(figsize=(6.5, 5))
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=readable_classes,
+            yticklabels=readable_classes,
+            cbar=False,
+            ax=ax,
+        )
+        ax.set_xlabel("Predicted Class", fontweight="bold")
+        ax.set_ylabel("True Class", fontweight="bold")
+        plt.xticks(rotation=40, ha="right", fontsize=8)
+        plt.yticks(fontsize=8)
+        plt.tight_layout()
         st.pyplot(fig)
-        plt.close()
 
-    else:
-        st.subheader("Batch Predictions")
-        pred_summary = df.copy()
-        pred_summary["Predicted_Obesity_Level"] = y_pred
-        st.dataframe(pred_summary.head(10), use_container_width=True)
-        st.info("Uploaded dataset does not contain ground-truth target 'NObeyesdad'. Showing predictions.")
+    with col_right:
+        st.subheader("Per-Class Classification Report")
+        report_dict = classification_report(
+            y_eval,
+            preds,
+            target_names=readable_classes,
+            output_dict=True,
+            zero_division=0,
+        )
+        report_df = pd.DataFrame(report_dict).transpose()
+        st.dataframe(report_df.round(4), width="stretch")
+else:
+    st.subheader(f"Model Predictions: {selected_model_name}")
+    preds = model.predict(df_eval)
+    pred_labels = [readable_classes[p] for p in preds]
+    results_df = df_eval.copy()
+    results_df["Predicted_Obesity_Level"] = pred_labels
+    st.dataframe(results_df, width="stretch")
