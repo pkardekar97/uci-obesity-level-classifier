@@ -17,7 +17,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("Obesity Level Classification System")
-st.caption("BITS Pilani M.Tech AI/ML | Machine Learning Assignment 1")
+st.markdown("BITS Pilani M.Tech AI/ML | Machine Learning Assignment 2")
 st.markdown(
     "Interactive evaluation dashboard evaluating 5 distinct classifiers trained on the UCI Obesity dataset. "
     "Features include 14 lifestyle and demographic attributes (Height and Weight removed to avoid target leakage)."
