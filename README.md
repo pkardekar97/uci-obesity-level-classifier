@@ -1,111 +1,51 @@
 # Multi-Class Obesity Risk Level Classifier
 
-**Course:** BITS Pilani M.Tech AI/ML — Machine Learning (Assignment 1)  
-**Student Name:** Pranay Kardekar  
-**BITS ID:** 2026AK05670  
-**Repository:** https://github.com/pkardekar97/uci-obesity-level-classifier  
-**Live Application URL:** https://pranaykardekar-2026ak05670-obesity-classifier.streamlit.app/  
+**Course:** Machine Learning (Assignment 2)
+**Name:** Pranay Kardekar
+**BITS ID:** 2026AK05670
+**Github Repository Link:** https://github.com/pkardekar97/uci-obesity-level-classifier
+**Live Application URL:** https://pranaykardekar-2026ak05670-obesity-classifier.streamlit.app/
 
 ---
 
-## 1. Problem Statement & Dataset Overview
-
-This project implements an end-to-end Machine Learning pipeline to classify individuals into 7 distinct obesity-related categories based on eating habits, demographic profile, and physical lifestyle patterns.
-
-* **Data Source:** UCI Machine Learning Repository — Estimation of Obesity Levels Based On Eating Habits and Physical Condition
-* **Instance Count:** 2,087 unique patient records (24 duplicate records removed during data cleaning).
-* **Target Classes (7 levels):**
-  1. Insufficient_Weight
-  2. Normal_Weight
-  3. Overweight_Level_I
-  4. Overweight_Level_II
-  5. Obesity_Type_I
-  6. Obesity_Type_II
-  7. Obesity_Type_III
-
-### Preventing Target Leakage
-In clinical standards, Body Mass Index (BMI) is mathematically defined as:
-BMI = Weight (kg) / [Height (m)]^2
-
-Because target classes are derived directly from clinical BMI thresholds, retaining Weight and Height features results in trivial target leakage. To construct a legitimate diagnostic model assessing lifestyle and demographic factors, **Height and Weight were deliberately removed from the feature set**, leaving 14 predictive features.
+## a. Problem Statement
+The objective of this project is to build, evaluate, and deploy machine learning classification models to predict individuals' obesity risk levels based on their demographic attributes, dietary habits, and physical activity patterns. Obesity is a major multi-class health classification problem where early risk estimation can guide preventive clinical interventions.
 
 ---
 
-## 2. Feature Schema & Pipeline Preprocessing
-
-The 14 behavioral and demographic features used are:
-* **Continuous / Discrete Numerical (6):** Age, FCVC (vegetable intake frequency), NCP (main meals/day), CH2O (daily water consumption), FAF (physical activity frequency), TUE (time using tech devices).
-* **Categorical / Nominal (8):** Gender, family_history_with_overweight, FAVC (high caloric food), CAEC (food between meals), SMOKE, SCC (calorie monitoring), CALC (alcohol consumption), MTRANS (mode of transportation).
-
-### Scikit-Learn Preprocessing Pipeline
-To guarantee zero data contamination between splits:
-1. **Partitioning:** Stratified 80/20 train-test split (test_size=0.20, random_state=42, stratify=y).
-2. **Numeric Pipeline:** Imputation (SimpleImputer with median) followed by StandardScaler.
-3. **Categorical Pipeline:** Imputation (SimpleImputer with most_frequent) followed by OneHotEncoder(handle_unknown='ignore', sparse_output=False).
-4. **ColumnTransformer:** Assembles feature pipelines, fitted strictly on the training partition and applied downstream to test instances.
+## b. Dataset Description
+- **Dataset:** Estimation of Obesity Levels Based On Eating Habits and Physical Condition (UCI Machine Learning Repository)
+- **Instances:** 2,111 records
+- **Features:** 16 predictive features (demographics, dietary habits, lifestyle behaviors)
+- **Target Variable:** `NObeyesdad` (7 classes: Insufficient Weight, Normal Weight, Overweight Level I, Overweight Level II, Obesity Type I, Obesity Type II, Obesity Type III)
+- **Preprocessing:** Numerical features scaled via standard normalization; categorical variables transformed via one-hot encoding; train-test split evaluated under reproducible cross-validated hyperparameter tuning.
 
 ---
 
-## 3. Comparative Model Performance
-
-All 5 classifiers were evaluated on the held-out test split (N = 418) across 6 multi-class evaluation metrics:
-
-| Model Classifier | Accuracy | AUC (OvR) | Precision (Weighted) | Recall (Weighted) | F1-Score (Weighted) | MCC (Multi-Class) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Support Vector Machine (RBF)** | **0.8038** | **0.9575** | **0.8031** | **0.8038** | **0.7997** | **0.7716** |
-| **K-Nearest Neighbors (k=7)** | 0.7775 | 0.9327 | 0.7788 | 0.7775 | 0.7754 | 0.7410 |
-| **Logistic Regression (L2)** | 0.7321 | 0.9388 | 0.7303 | 0.7321 | 0.7282 | 0.6868 |
-| **Decision Tree (d=8)** | 0.7201 | 0.8967 | 0.7208 | 0.7201 | 0.7185 | 0.6738 |
-| **Gaussian Naive Bayes** | 0.6124 | 0.8524 | 0.6119 | 0.6124 | 0.5898 | 0.5511 |
+## c. Github Repository Link
+https://github.com/pkardekar97/uci-obesity-level-classifier
 
 ---
 
-## 4. Repository Structure
+## d. Models Used & Performance Comparison
 
-```text
-uci-obesity-level-classifier/
-├── data/
-│   └── raw_obesity_data.csv
-├── model/
-│   ├── meta.joblib
-│   ├── logistic_regression.joblib
-│   ├── decision_tree.joblib
-│   ├── knn.joblib
-│   ├── naive_bayes.joblib
-│   └── svm.joblib
-├── metrics_utils.py
-├── train_models.py
-├── test_data.csv
-├── results.csv
-├── app.py
-├── requirements.txt
-└── README.md
+### Evaluation Metrics Comparison Table
 
-```
+| ML Model Name | Accuracy | AUC | Precision | Recall | F1 | MCC |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Logistic Regression | 0.6244 | 0.8828 | 0.6218 | 0.6244 | 0.6099 | 0.5653 |
+| Decision Tree | 0.7488 | 0.8632 | 0.7495 | 0.7488 | 0.7461 | 0.7075 |
+| KNN | 0.7584 | 0.9117 | 0.7548 | 0.7584 | 0.7485 | 0.7205 |
+| Naive Bayes | 0.5431 | 0.8617 | 0.5978 | 0.5431 | 0.5132 | 0.4851 |
+| Support Vector Machine | 0.8038 | 0.9605 | 0.8059 | 0.8038 | 0.8020 | 0.7720 |
 
----
-## 5. Local Setup and Reproduction
+### Model Observations & Winner Analysis
 
-### 1. Clone repository
-
-git clone https://github.com/pkardekar97/uci-obesity-level-classifier.git
-
-cd uci-obesity-level-classifier
-
-### 2. Create and activate virtual environment
-
-python -m venv venv
-
-.\venv\Scripts\activate
-
-### 3. Install required packages
-
-pip install -r requirements.txt
-
-### 4. Retrain models & regenerate results
-
-python train_models.py
-
-### 5. Launch interactive Streamlit dashboard
-
-streamlit run app.py
+| ML Model Name | Observation about model performance |
+| :--- | :--- |
+| Logistic Regression | Provides a modest baseline (Accuracy: 0.6244) but struggles to capture complex non-linear feature interactions between dietary intake, physical activity, and multi-class target boundaries. |
+| Decision Tree | Captures hierarchical decision splits effectively with balanced Precision and Recall (~0.749), though slight overfitting is observed relative to its high training accuracy. |
+| KNN | Demonstrates strong neighborhood separation across scaled continuous attributes, achieving the second highest accuracy (0.7584) and a solid AUC of 0.9117 with k=3. |
+| Naive Bayes | Exhibits the lowest overall performance (Accuracy: 0.5431, MCC: 0.4851) due to strong conditional feature independence assumptions being violated by correlated lifestyle metrics. |
+| Support Vector Machine | Outperforms all models across every evaluation metric, achieving the highest Accuracy (0.8038), AUC (0.9605), F1 (0.8020), and MCC (0.7720) through effective high-dimensional margin separation with an RBF kernel. |
+| **Overall, Winner for your dataset?** | **Support Vector Machine (SVM)** is the definitive winner, providing superior generalization, the highest discriminatory power (AUC 0.9605), and top-tier multi-class balance across all metric categories. |
