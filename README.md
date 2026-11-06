@@ -1,13 +1,5 @@
 # Multi-Class Obesity Risk Level Classifier
 
-**Course:** Machine Learning (Assignment 2)
-**Name:** Pranay Kardekar
-**BITS ID:** 2026AK05670
-**Github Repository Link:** https://github.com/pkardekar97/uci-obesity-level-classifier
-**Live Application URL:** https://pranaykardekar-2026ak05670-obesity-classifier.streamlit.app/
-
----
-
 ## a. Problem Statement
 The objective of this project is to build, evaluate, and deploy machine learning classification models to predict individuals' obesity risk levels based on their demographic attributes, dietary habits, and physical activity patterns. Obesity is a major multi-class health classification problem where early risk estimation can guide preventive clinical interventions.
 
